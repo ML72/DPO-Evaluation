@@ -61,7 +61,7 @@ def dataset_to_prompts(data_array):
             'answer': ""
         }
         prompt = example_str + entry_to_prompt(masked_entry)
-        prompts.append((prompt[:-1], entry['answer']))
+        prompts.append((prompt[:-2], entry['answer']))
     return prompts
 
 prompts_train = dataset_to_prompts(data_train)
