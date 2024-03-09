@@ -1,5 +1,6 @@
 # 0. imports
 import os
+import json
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 
@@ -24,8 +25,8 @@ class ScriptArguments:
 
     # training parameters
     model_name_or_path: Optional[str] = field(
-        default="../sft/results/final_checkpoint",
-        metadata={"help": "the location of the SFT model name or path"},
+        default="allenai/OLMo-1B",
+        metadata={"help": "the location of the model name or path"},
     )
     learning_rate: Optional[float] = field(default=5e-4, metadata={"help": "optimizer learning rate"})
     lr_scheduler_type: Optional[str] = field(default="cosine", metadata={"help": "the lr scheduler type"})
@@ -50,7 +51,7 @@ class ScriptArguments:
     lora_dropout: Optional[float] = field(default=0.05, metadata={"help": "the lora dropout parameter"})
     lora_r: Optional[int] = field(default=8, metadata={"help": "the lora r parameter"})
 
-    max_prompt_length: Optional[int] = field(default=512, metadata={"help": "the maximum prompt length"})
+    max_prompt_length: Optional[int] = field(default=1024, metadata={"help": "the maximum prompt length"})
     max_length: Optional[int] = field(default=1024, metadata={"help": "the maximum sequence length"})
     max_steps: Optional[int] = field(default=1000, metadata={"help": "max number of training steps"})
     logging_steps: Optional[int] = field(default=10, metadata={"help": "the logging frequency"})
@@ -61,7 +62,7 @@ class ScriptArguments:
     log_freq: Optional[int] = field(default=1, metadata={"help": "the logging frequency"})
     load_in_4bit: Optional[bool] = field(default=True, metadata={"help": "whether to load the model in 4bit"})
     model_dtype: Optional[str] = field(
-        default="float16", metadata={"help": "model_dtype[float16, bfloat16, float] for loading."}
+        default="bfloat16", metadata={"help": "model_dtype[float16, bfloat16, float] for loading."}
     )
 
     # instrumentation
@@ -87,48 +88,25 @@ class ScriptArguments:
     )
 
 
-def get_stack_exchange_paired(
-    data_dir: str = "data/rl",
-    sanity_check: bool = False,
-    cache_dir: Optional[str] = None,
-    num_proc=24,
-) -> Dataset:
-    """Load the stack-exchange-paired dataset from Hugging Face and convert it to the necessary format.
+def load_data_from_json(json_path: str) -> Dataset:
+    """
+    Load the data from JSON
+    """
+    with open(json_path, 'r') as f:
+        data = json.load(f)
 
-    The dataset is converted to a dictionary with the following structure:
-    {
-        'prompt': List[str],
-        'chosen': List[str],
-        'rejected': List[str],
+    # Assuming each item in your JSON file is a list with three elements
+    # corresponding to 'prompt', 'chosen', and 'rejected'
+    formatted_data = {
+        'prompt': [item[0] for item in data],
+        'chosen': [item[1] for item in data],
+        'rejected': [item[2] for item in data],
     }
 
-    Prompts are structured as follows:
-      "Question: " + <prompt> + "\n\nAnswer: "
-    """
-    dataset = load_dataset(
-        "lvwerra/stack-exchange-paired",
-        split="train",
-        cache_dir=cache_dir,
-        data_dir=data_dir,
-    )
-    original_columns = dataset.column_names
+    # Convert the formatted data into a Hugging Face Dataset
+    dataset = Dataset.from_dict(formatted_data)
 
-    if sanity_check:
-        dataset = dataset.select(range(min(len(dataset), 1000)))
-
-    def return_prompt_and_responses(samples) -> Dict[str, str]:
-        return {
-            "prompt": ["Question: " + question + "\n\nAnswer: " for question in samples["question"]],
-            "chosen": samples["response_j"],
-            "rejected": samples["response_k"],
-        }
-
-    return dataset.map(
-        return_prompt_and_responses,
-        batched=True,
-        num_proc=num_proc,
-        remove_columns=original_columns,
-    )
+    return dataset
 
 
 if __name__ == "__main__":
@@ -159,18 +137,18 @@ if __name__ == "__main__":
             name for name, buffer in model.named_buffers() if buffer.dtype == torch.bool
         ]
 
-    tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
+    tokenizer = AutoTokenizer.from_pretrained("allenai/OLMo-1B")
     tokenizer.pad_token = tokenizer.eos_token
 
-    # 2. Load the Stack-exchange paired dataset
-    train_dataset = get_stack_exchange_paired(data_dir="data/rl", sanity_check=script_args.sanity_check)
+    # 2. Load the paired dataset
+    train_dataset = load_data_from_json("data/training")
     train_dataset = train_dataset.filter(
         lambda x: len(x["prompt"]) + len(x["chosen"]) <= script_args.max_length
         and len(x["prompt"]) + len(x["rejected"]) <= script_args.max_length
     )
 
     # 3. Load evaluation dataset
-    eval_dataset = get_stack_exchange_paired(data_dir="data/evaluation", sanity_check=True)
+    eval_dataset = load_data_from_json("data/evaluation")
     eval_dataset = eval_dataset.filter(
         lambda x: len(x["prompt"]) + len(x["chosen"]) <= script_args.max_length
         and len(x["prompt"]) + len(x["rejected"]) <= script_args.max_length
@@ -195,7 +173,7 @@ if __name__ == "__main__":
         optim=script_args.optimizer_type,
         bf16=True,
         remove_unused_columns=False,
-        run_name="dpo_llama2",
+        run_name="dpo_olmo",
         gradient_checkpointing_kwargs=dict(use_reentrant=script_args.gradient_checkpointing_use_reentrant),
         seed=script_args.seed,
     )
