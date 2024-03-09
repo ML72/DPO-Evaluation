@@ -18,17 +18,16 @@ def read_jsonl_to_array(file_path):
                 data_array.append(json.loads(line))
     return data_array
 
-def write_array_to_jsonl(data_array, file_path):
+def write_array_to_json(data_array, file_path):
     """
-    Writes a list of dictionaries to a .jsonl file.
+    Writes a list of dictionaries to a .json file.
 
     Args:
     - data_array (List[dict]): A list of dictionaries, each representing a JSON object.
-    - file_path (str): The path to the .jsonl file to write to.
+    - file_path (str): The path to the .json file to write to.
     """
     with open(file_path, 'w', encoding='utf-8') as file:
-        for entry in data_array:
-            file.write(json.dumps(entry, ensure_ascii=False) + '\n')
+        json.dump(data_array, file, ensure_ascii=False, indent=4)
 
 def random_other(choice):
     """
@@ -54,16 +53,24 @@ def entry_to_prompt(entry):
     prompt += f"Best Continuation: {entry['answer']}\n"
     return prompt
 
-# Read in data
-fewshot_examples = read_jsonl_to_array('./data/fewshot_examples.jsonl')
-data_train = read_jsonl_to_array('./data/data_train.jsonl')
+def example_str(fewshot_examples, num=0):
+    """
+    Converts a random sample from a list of examples into a string.
 
-# Build up examples string
-example_str = ""
-for example in fewshot_examples:
-    example_str += entry_to_prompt(example) + "\n"
+    Args:
+    - fewshot_examples (List[dict]): A list of dictionaries, each representing a JSON data object.
 
-def dataset_to_prompts(data_array, noise=0.0):
+    Returns:
+    - str: A string representing the examples.
+    """
+    random_examples = random.sample(fewshot_examples, num)
+    random.shuffle(random_examples)
+    example_str = ""
+    for example in random_examples:
+        example_str += entry_to_prompt(example) + "\n"
+    return example_str
+
+def dataset_to_prompts(fewshot_examples, data_array, noise=0.0):
     """
     Converts a dataset into a list of prompts.
 
@@ -85,7 +92,7 @@ def dataset_to_prompts(data_array, noise=0.0):
             'choices': entry['choices'],
             'answer': ""
         }
-        prompt = example_str + entry_to_prompt(masked_entry)
+        prompt = example_str(fewshot_examples) + entry_to_prompt(masked_entry)
         chosen = f" {entry['answer']}"
         rejected = f" {random_other(entry['answer'])}"
         prompts.append((prompt[:-2], chosen, rejected))
@@ -98,9 +105,15 @@ def dataset_to_prompts(data_array, noise=0.0):
     
     return prompts
 
+# Read in data
+fewshot_examples = read_jsonl_to_array('./data/fewshot_examples.jsonl')
+data_train = read_jsonl_to_array('./data/data_train.jsonl')
+
 # Build up noisy prompts and write results
 noises = [("000", 0.0), ("025", 0.25), ("050", 0.50), ("075", 0.75), ("100", 1.00)]
 for noise in noises:
-    res = dataset_to_prompts(data_train, noise=noise[1])
-    write_array_to_jsonl(res, f'./data/train_{noise[0]}.jsonl')
-    print(f"Generated train_{noise[0]}.jsonl")
+    for trial in range(5):
+        res = dataset_to_prompts(fewshot_examples, data_train, noise=noise[1])
+        filename = f'./data/dpo/dpo_{noise[0]}-{trial+1}.json'
+        write_array_to_json(res, filename)
+        print(f"Generated trial {trial+1} of {filename} with noise {noise[1]}")
