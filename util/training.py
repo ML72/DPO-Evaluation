@@ -25,7 +25,7 @@ class ScriptArguments:
 
     # training parameters
     model_name_or_path: Optional[str] = field(
-        default="openai-community/gpt2-xl",
+        default="gpt2",
         metadata={"help": "the location of the model name or path"},
     )
     learning_rate: Optional[float] = field(default=5e-4, metadata={"help": "optimizer learning rate"})
@@ -98,23 +98,8 @@ def load_data_from_json(
     """
     dataset = load_dataset("json", data_files=json_path, split=split)
 
-    # Assuming each item in your JSON file is a list with three elements
-    # corresponding to 'prompt', 'chosen', and 'rejected'
-    #formatted_data = {
-    #    'prompt': [item[0] for item in data],
-    #    'chosen': [item[1] for item in data],
-    #    'rejected': [item[2] for item in data],
-    #}
-
-    # Convert the formatted data into a Hugging Face Dataset
-    #dataset = Dataset.from_dict(formatted_data)
-
     def data_mapping(sample):
-        return {
-            "prompt": sample["prompt"],
-            "chosen": sample["chosen"],
-            "rejected": sample["rejected"],
-        }
+        return sample
 
     return dataset.map(
         data_mapping
@@ -150,7 +135,7 @@ if __name__ == "__main__":
             name for name, buffer in model.named_buffers() if buffer.dtype == torch.bool
         ]
 
-    tokenizer = AutoTokenizer.from_pretrained("openai-community/gpt2-xl")
+    tokenizer = AutoTokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
 
     # 2. Load the paired dataset
