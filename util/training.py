@@ -110,7 +110,11 @@ def load_data_from_json(
     #dataset = Dataset.from_dict(formatted_data)
 
     def data_mapping(sample):
-        return sample
+        return {
+            "prompt": sample["prompt"],
+            "chosen": sample["chosen"],
+            "rejected": sample["rejected"],
+        }
 
     return dataset.map(
         data_mapping
