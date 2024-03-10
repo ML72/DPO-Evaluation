@@ -116,6 +116,7 @@ if __name__ == "__main__":
     noises = ["000", "025", "050", "075", "100"]
     for noise in noises:
         for trial in range(5):
+            output_path = os.path.join(script_args.output_dir, f"dpo_{noise}-{trial+1}")
 
             # 1. load a pretrained model
             torch_dtype = torch.float
@@ -169,7 +170,7 @@ if __name__ == "__main__":
                 learning_rate=script_args.learning_rate,
                 evaluation_strategy="steps",
                 eval_steps=script_args.eval_steps,
-                output_dir=script_args.output_dir,
+                output_dir=output_path,
                 report_to=script_args.report_to,
                 lr_scheduler_type=script_args.lr_scheduler_type,
                 warmup_steps=script_args.warmup_steps,
@@ -214,8 +215,8 @@ if __name__ == "__main__":
 
             # 6. train
             dpo_trainer.train()
-            dpo_trainer.save_model(script_args.output_dir)
+            dpo_trainer.save_model(script_args.output_path)
 
             # 7. save
-            output_dir = os.path.join(script_args.output_dir, "final_checkpoint")
-            dpo_trainer.model.save_pretrained(output_dir)
+            output_path = os.path.join(script_args.output_path, "final_checkpoint")
+            dpo_trainer.model.save_pretrained(output_path)
