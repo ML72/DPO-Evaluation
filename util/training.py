@@ -157,11 +157,11 @@ if __name__ == "__main__":
     )
 
     # 3. Load evaluation dataset
-    #eval_dataset = load_data_from_json("../data/dpo/dpo_testing2.json")
-    #eval_dataset = eval_dataset.filter(
-    #    lambda x: len(x["prompt"]) + len(x["chosen"]) <= script_args.max_length
-    #    and len(x["prompt"]) + len(x["rejected"]) <= script_args.max_length
-    #)
+    eval_dataset = load_data_from_json("../data/dpo/dpo_testing2.json")
+    eval_dataset = eval_dataset.filter(
+        lambda x: len(x["prompt"]) + len(x["chosen"]) <= script_args.max_length
+        and len(x["prompt"]) + len(x["rejected"]) <= script_args.max_length
+    )
 
     # 4. initialize training arguments:
     training_args = TrainingArguments(
@@ -211,7 +211,7 @@ if __name__ == "__main__":
         args=training_args,
         beta=script_args.beta,
         train_dataset=train_dataset,
-        #eval_dataset=eval_dataset,
+        eval_dataset=eval_dataset,
         tokenizer=tokenizer,
         peft_config=peft_config,
         max_prompt_length=script_args.max_prompt_length,
