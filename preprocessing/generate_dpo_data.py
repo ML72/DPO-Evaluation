@@ -107,10 +107,11 @@ def dataset_to_prompts(fewshot_examples, data_array, noise=0.0):
 
 # Read in data
 fewshot_examples = read_jsonl_to_array('./data/fewshot_examples.jsonl')
+data_val = read_jsonl_to_array('./data/data_val.jsonl')
 data_train = read_jsonl_to_array('./data/data_train.jsonl')
 data_train = data_train[:1000]  # Limit to a small subset
 
-# Build up noisy prompts and write results
+# Build up noisy prompts and write train results
 noises = [("000", 0.0), ("025", 0.25), ("050", 0.50), ("075", 0.75), ("100", 1.00)]
 for noise in noises:
     for trial in range(5):
@@ -123,3 +124,15 @@ for noise in noises:
         filename = f'./data/dpo/dpo_{noise[0]}-{trial+1}.json'
         write_array_to_json(res, filename)
         print(f"Generated trial {trial+1} of {filename} with noise {noise[1]}")
+
+# Build up validation results
+for i in range(5):
+    res = dataset_to_prompts(fewshot_examples, data_val, noise=0.0)
+    res = [{
+        "prompt": subarray[0],
+        "chosen": subarray[1],
+        "rejected": subarray[2]
+    } for subarray in res]
+    filename = f'./data/dpo/val-{i+1}.json'
+    write_array_to_json(res, filename)
+    print(f"Generated trial {i+1} of {filename} for validation")
