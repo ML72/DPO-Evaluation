@@ -115,7 +115,7 @@ if __name__ == "__main__":
     # Training loop for trials!
     noises = ["000", "025", "050", "075", "100"]
     for noise in noises:
-        for trial in range(5):
+        for trial in range(3):
             output_path = os.path.join(script_args.output_dir, f"dpo_{noise}-{trial+1}")
 
             # 1. load a pretrained model
@@ -215,8 +215,8 @@ if __name__ == "__main__":
 
             # 6. train
             dpo_trainer.train()
-            dpo_trainer.save_model(script_args.output_path)
+            dpo_trainer.save_model(output_path)
 
             # 7. save
-            output_path = os.path.join(script_args.output_path, "final_checkpoint")
+            output_path = os.path.join(output_path, "final_checkpoint")
             dpo_trainer.model.save_pretrained(output_path)
