@@ -25,12 +25,12 @@ class ScriptArguments:
 
     # training parameters
     model_name_or_path: Optional[str] = field(
-        default="allenai/OLMo-1B",
+        default="openai-community/gpt2-xl",
         metadata={"help": "the location of the model name or path"},
     )
     learning_rate: Optional[float] = field(default=5e-4, metadata={"help": "optimizer learning rate"})
     lr_scheduler_type: Optional[str] = field(default="cosine", metadata={"help": "the lr scheduler type"})
-    warmup_steps: Optional[int] = field(default=100, metadata={"help": "the number of warmup steps"})
+    warmup_steps: Optional[int] = field(default=20, metadata={"help": "the number of warmup steps"})
     weight_decay: Optional[float] = field(default=0.05, metadata={"help": "the weight decay"})
     optimizer_type: Optional[str] = field(default="paged_adamw_32bit", metadata={"help": "the optimizer type"})
 
@@ -53,10 +53,10 @@ class ScriptArguments:
 
     max_prompt_length: Optional[int] = field(default=1024, metadata={"help": "the maximum prompt length"})
     max_length: Optional[int] = field(default=1024, metadata={"help": "the maximum sequence length"})
-    max_steps: Optional[int] = field(default=1000, metadata={"help": "max number of training steps"})
+    max_steps: Optional[int] = field(default=100, metadata={"help": "max number of training steps"})
     logging_steps: Optional[int] = field(default=10, metadata={"help": "the logging frequency"})
-    save_steps: Optional[int] = field(default=100, metadata={"help": "the saving frequency"})
-    eval_steps: Optional[int] = field(default=100, metadata={"help": "the evaluation frequency"})
+    save_steps: Optional[int] = field(default=20, metadata={"help": "the saving frequency"})
+    eval_steps: Optional[int] = field(default=20, metadata={"help": "the evaluation frequency"})
 
     output_dir: Optional[str] = field(default="./results", metadata={"help": "the output directory"})
     log_freq: Optional[int] = field(default=1, metadata={"help": "the logging frequency"})
@@ -88,25 +88,37 @@ class ScriptArguments:
     )
 
 
-def load_data_from_json(json_path: str) -> Dataset:
+def load_data_from_json(
+    json_path: str,
+    split="train",
+    num_proc=24,
+) -> Dataset:
     """
     Load the data from JSON
     """
-    with open(json_path, 'r') as f:
-        data = json.load(f)
+    dataset = load_dataset("json", data_files=json_path, split=split)
 
     # Assuming each item in your JSON file is a list with three elements
     # corresponding to 'prompt', 'chosen', and 'rejected'
-    formatted_data = {
-        'prompt': [item[0] for item in data],
-        'chosen': [item[1] for item in data],
-        'rejected': [item[2] for item in data],
-    }
+    #formatted_data = {
+    #    'prompt': [item[0] for item in data],
+    #    'chosen': [item[1] for item in data],
+    #    'rejected': [item[2] for item in data],
+    #}
 
     # Convert the formatted data into a Hugging Face Dataset
-    dataset = Dataset.from_dict(formatted_data)
+    #dataset = Dataset.from_dict(formatted_data)
 
-    return dataset
+    def data_mapping(sample):
+        return {
+            "prompt": sample["prompt"],
+            "chosen": sample["chosen"],
+            "rejected": sample["rejected"],
+        }
+
+    return dataset.map(
+        data_mapping
+    )
 
 
 if __name__ == "__main__":
@@ -128,6 +140,7 @@ if __name__ == "__main__":
         torch_dtype=torch_dtype,
         load_in_4bit=script_args.load_in_4bit,
         device_map={"": Accelerator().local_process_index},
+        trust_remote_code=True,
     )
     model.config.use_cache = False
 
@@ -137,18 +150,18 @@ if __name__ == "__main__":
             name for name, buffer in model.named_buffers() if buffer.dtype == torch.bool
         ]
 
-    tokenizer = AutoTokenizer.from_pretrained("allenai/OLMo-1B")
+    tokenizer = AutoTokenizer.from_pretrained("openai-community/gpt2-xl")
     tokenizer.pad_token = tokenizer.eos_token
 
     # 2. Load the paired dataset
-    train_dataset = load_data_from_json("data/training")
+    train_dataset = load_data_from_json("../data/dpo/dpo_testing2.json")
     train_dataset = train_dataset.filter(
         lambda x: len(x["prompt"]) + len(x["chosen"]) <= script_args.max_length
         and len(x["prompt"]) + len(x["rejected"]) <= script_args.max_length
     )
 
     # 3. Load evaluation dataset
-    eval_dataset = load_data_from_json("data/evaluation")
+    eval_dataset = load_data_from_json("../data/dpo/dpo_testing2.json")
     eval_dataset = eval_dataset.filter(
         lambda x: len(x["prompt"]) + len(x["chosen"]) <= script_args.max_length
         and len(x["prompt"]) + len(x["rejected"]) <= script_args.max_length
@@ -171,9 +184,9 @@ if __name__ == "__main__":
         lr_scheduler_type=script_args.lr_scheduler_type,
         warmup_steps=script_args.warmup_steps,
         optim=script_args.optimizer_type,
-        bf16=True,
+        fp16=True,
         remove_unused_columns=False,
-        run_name="dpo_olmo",
+        run_name="dpo_run",
         gradient_checkpointing_kwargs=dict(use_reentrant=script_args.gradient_checkpointing_use_reentrant),
         seed=script_args.seed,
     )

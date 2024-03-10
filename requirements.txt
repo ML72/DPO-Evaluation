@@ -1,0 +1,11 @@
+datasets
+torch
+tqdm
+transformers
+accelerate
+peft
+tyro
+trl
+ai2-olmo
+bitsandbytes
+wandb
