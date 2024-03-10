@@ -87,6 +87,20 @@ class ScriptArguments:
         default=0, metadata={"help": "Random seed that will be set at the beginning of training."}
     )
 
+    # custom data parameters
+    train_data_path: Optional[str] = field(
+        default="../data/dpo",
+        metadata={"help": "the location of the train data path"},
+    )
+    val_data_path: Optional[str] = field(
+        default="../data/dpo",
+        metadata={"help": "the location of the val data path"},
+    )
+    run_name: Optional[str] = field(
+        default="dpo_run",
+        metadata={"help": "the name of the run"},
+    )
+
 
 def load_data_from_json(
     json_path: str,
@@ -112,111 +126,105 @@ if __name__ == "__main__":
 
     set_seed(script_args.seed)
 
-    # Training loop for trials!
-    noises = ["000", "025", "050", "075", "100"]
-    for noise in noises:
-        for trial in range(3):
-            output_path = os.path.join(script_args.output_dir, f"dpo_{noise}-{trial+1}")
+    # 1. load a pretrained model
+    torch_dtype = torch.float
+    if script_args.model_dtype == "float16":
+        torch_dtype = torch.float16
+    elif script_args.model_dtype == "bfloat16":
+        torch_dtype = torch.bfloat16
 
-            # 1. load a pretrained model
-            torch_dtype = torch.float
-            if script_args.model_dtype == "float16":
-                torch_dtype = torch.float16
-            elif script_args.model_dtype == "bfloat16":
-                torch_dtype = torch.bfloat16
+    model = AutoModelForCausalLM.from_pretrained(
+        script_args.model_name_or_path,
+        low_cpu_mem_usage=True,
+        torch_dtype=torch_dtype,
+        load_in_4bit=script_args.load_in_4bit,
+        device_map={"": Accelerator().local_process_index},
+        trust_remote_code=True,
+    )
+    model.config.use_cache = False
 
-            model = AutoModelForCausalLM.from_pretrained(
-                script_args.model_name_or_path,
-                low_cpu_mem_usage=True,
-                torch_dtype=torch_dtype,
-                load_in_4bit=script_args.load_in_4bit,
-                device_map={"": Accelerator().local_process_index},
-                trust_remote_code=True,
-            )
-            model.config.use_cache = False
+    if script_args.ignore_bias_buffers:
+        # torch distributed hack
+        model._ddp_params_and_buffers_to_ignore = [
+            name for name, buffer in model.named_buffers() if buffer.dtype == torch.bool
+        ]
 
-            if script_args.ignore_bias_buffers:
-                # torch distributed hack
-                model._ddp_params_and_buffers_to_ignore = [
-                    name for name, buffer in model.named_buffers() if buffer.dtype == torch.bool
-                ]
+    tokenizer = AutoTokenizer.from_pretrained("gpt2")
+    tokenizer.pad_token = tokenizer.eos_token
 
-            tokenizer = AutoTokenizer.from_pretrained("gpt2")
-            tokenizer.pad_token = tokenizer.eos_token
+    # 2. Load the paired dataset
+    train_dataset = load_data_from_json(script_args.train_data_path, split="train")
+    train_dataset = train_dataset.filter(
+        lambda x: len(x["prompt"]) + len(x["chosen"]) <= script_args.max_length
+        and len(x["prompt"]) + len(x["rejected"]) <= script_args.max_length
+    )
 
-            # 2. Load the paired dataset
-            train_dataset = load_data_from_json(f"../data/dpo/dpo_{noise}-{trial+1}.json")
-            train_dataset = train_dataset.filter(
-                lambda x: len(x["prompt"]) + len(x["chosen"]) <= script_args.max_length
-                and len(x["prompt"]) + len(x["rejected"]) <= script_args.max_length
-            )
+    # 3. Load evaluation dataset
+    eval_dataset = load_data_from_json(script_args.val_data_path, split="validation")
+    eval_dataset = eval_dataset.filter(
+        lambda x: len(x["prompt"]) + len(x["chosen"]) <= script_args.max_length
+        and len(x["prompt"]) + len(x["rejected"]) <= script_args.max_length
+    )
 
-            # 3. Load evaluation dataset
-            eval_dataset = load_data_from_json(f"../data/dpo/val-{trial+1}.json")
-            eval_dataset = eval_dataset.filter(
-                lambda x: len(x["prompt"]) + len(x["chosen"]) <= script_args.max_length
-                and len(x["prompt"]) + len(x["rejected"]) <= script_args.max_length
-            )
+    # 4. initialize training arguments:
+    training_args = TrainingArguments(
+        per_device_train_batch_size=script_args.per_device_train_batch_size,
+        per_device_eval_batch_size=script_args.per_device_eval_batch_size,
+        max_steps=script_args.max_steps,
+        logging_steps=script_args.logging_steps,
+        save_steps=script_args.save_steps,
+        gradient_accumulation_steps=script_args.gradient_accumulation_steps,
+        gradient_checkpointing=script_args.gradient_checkpointing,
+        learning_rate=script_args.learning_rate,
+        evaluation_strategy="steps",
+        eval_steps=script_args.eval_steps,
+        output_dir=script_args.output_dir,
+        report_to=script_args.report_to,
+        lr_scheduler_type=script_args.lr_scheduler_type,
+        warmup_steps=script_args.warmup_steps,
+        optim=script_args.optimizer_type,
+        fp16=True,
+        remove_unused_columns=False,
+        run_name=script_args.run_name,
+        gradient_checkpointing_kwargs=dict(use_reentrant=script_args.gradient_checkpointing_use_reentrant),
+        seed=script_args.seed,
+    )
 
-            # 4. initialize training arguments:
-            training_args = TrainingArguments(
-                per_device_train_batch_size=script_args.per_device_train_batch_size,
-                per_device_eval_batch_size=script_args.per_device_eval_batch_size,
-                max_steps=script_args.max_steps,
-                logging_steps=script_args.logging_steps,
-                save_steps=script_args.save_steps,
-                gradient_accumulation_steps=script_args.gradient_accumulation_steps,
-                gradient_checkpointing=script_args.gradient_checkpointing,
-                learning_rate=script_args.learning_rate,
-                evaluation_strategy="steps",
-                eval_steps=script_args.eval_steps,
-                output_dir=output_path,
-                report_to=script_args.report_to,
-                lr_scheduler_type=script_args.lr_scheduler_type,
-                warmup_steps=script_args.warmup_steps,
-                optim=script_args.optimizer_type,
-                fp16=True,
-                remove_unused_columns=False,
-                run_name=f"dpo_{noise}-{trial+1}",
-                gradient_checkpointing_kwargs=dict(use_reentrant=script_args.gradient_checkpointing_use_reentrant),
-                seed=script_args.seed,
-            )
+    peft_config = LoraConfig(
+        r=script_args.lora_r,
+        lora_alpha=script_args.lora_alpha,
+        lora_dropout=script_args.lora_dropout,
+        target_modules=[
+            "q_proj",
+            "v_proj",
+            "k_proj",
+            "out_proj",
+            "fc_in",
+            "fc_out",
+            "wte",
+        ],
+        bias="none",
+        task_type="CAUSAL_LM",
+    )
 
-            peft_config = LoraConfig(
-                r=script_args.lora_r,
-                lora_alpha=script_args.lora_alpha,
-                lora_dropout=script_args.lora_dropout,
-                target_modules=[
-                    "q_proj",
-                    "v_proj",
-                    "k_proj",
-                    "out_proj",
-                    "fc_in",
-                    "fc_out",
-                    "wte",
-                ],
-                bias="none",
-                task_type="CAUSAL_LM",
-            )
+    # 5. initialize the DPO trainer
+    dpo_trainer = DPOTrainer(
+        model,
+        ref_model=None,
+        args=training_args,
+        beta=script_args.beta,
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        tokenizer=tokenizer,
+        peft_config=peft_config,
+        max_prompt_length=script_args.max_prompt_length,
+        max_length=script_args.max_length,
+    )
 
-            # 5. initialize the DPO trainer
-            dpo_trainer = DPOTrainer(
-                model,
-                ref_model=None,
-                args=training_args,
-                beta=script_args.beta,
-                train_dataset=train_dataset,
-                eval_dataset=eval_dataset,
-                tokenizer=tokenizer,
-                peft_config=peft_config,
-                max_prompt_length=script_args.max_prompt_length,
-                max_length=script_args.max_length,
-            )
+    # 6. train
+    dpo_trainer.train()
+    dpo_trainer.save_model(script_args.output_dir)
 
-            # 6. train
-            dpo_trainer.train()
-            dpo_trainer.save_model(output_path)
-
-            # 7. save
-            output_path = os.path.join(output_path, "final_checkpoint")
-            dpo_trainer.model.save_pretrained(output_path)
+    # 7. save
+    output_path = os.path.join(script_args.output_dir, "final_checkpoint")
+    dpo_trainer.model.save_pretrained(output_path)
