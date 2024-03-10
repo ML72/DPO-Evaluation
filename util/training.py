@@ -153,14 +153,14 @@ if __name__ == "__main__":
     tokenizer.pad_token = tokenizer.eos_token
 
     # 2. Load the paired dataset
-    train_dataset = load_data_from_json("../data/dpo/testing")
+    train_dataset = load_data_from_json("../data/dpo/dpo_testing.json")
     train_dataset = train_dataset.filter(
         lambda x: len(x["prompt"]) + len(x["chosen"]) <= script_args.max_length
         and len(x["prompt"]) + len(x["rejected"]) <= script_args.max_length
     )
 
     # 3. Load evaluation dataset
-    eval_dataset = load_data_from_json("../data/dpo/testing")
+    eval_dataset = load_data_from_json("../data/dpo/dpo_testing.json")
     eval_dataset = eval_dataset.filter(
         lambda x: len(x["prompt"]) + len(x["chosen"]) <= script_args.max_length
         and len(x["prompt"]) + len(x["rejected"]) <= script_args.max_length
