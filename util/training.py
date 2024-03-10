@@ -88,7 +88,10 @@ class ScriptArguments:
     )
 
 
-def load_data_from_json(json_path: str) -> Dataset:
+def load_data_from_json(
+    json_path: str,
+    num_proc=24
+) -> Dataset:
     """
     Load the data from JSON
     """
@@ -104,7 +107,11 @@ def load_data_from_json(json_path: str) -> Dataset:
     }
 
     # Convert the formatted data into a Hugging Face Dataset
-    dataset = Dataset.from_dict(formatted_data)
+    dataset = Dataset.from_dict(
+        formatted_data,
+        batched=True,
+        num_proc=num_proc
+    )
 
     return dataset
 

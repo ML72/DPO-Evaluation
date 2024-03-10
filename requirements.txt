@@ -1,10 +1,11 @@
-datasets>=1.17.0
+datasets
 torch
 tqdm
 transformers
 accelerate
-peft>=0.3.0
-tyro>=0.5.7
+peft
+tyro
 trl
 ai2-olmo
 bitsandbytes
+wandb
