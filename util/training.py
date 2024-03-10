@@ -25,7 +25,7 @@ class ScriptArguments:
 
     # training parameters
     model_name_or_path: Optional[str] = field(
-        default="allenai/OLMo-1B",
+        default="gpt2",
         metadata={"help": "the location of the model name or path"},
     )
     learning_rate: Optional[float] = field(default=5e-4, metadata={"help": "optimizer learning rate"})
@@ -52,7 +52,7 @@ class ScriptArguments:
     lora_r: Optional[int] = field(default=8, metadata={"help": "the lora r parameter"})
 
     max_prompt_length: Optional[int] = field(default=1024, metadata={"help": "the maximum prompt length"})
-    max_length: Optional[int] = field(default=1026, metadata={"help": "the maximum sequence length"})
+    max_length: Optional[int] = field(default=1024, metadata={"help": "the maximum sequence length"})
     max_steps: Optional[int] = field(default=1000, metadata={"help": "max number of training steps"})
     logging_steps: Optional[int] = field(default=10, metadata={"help": "the logging frequency"})
     save_steps: Optional[int] = field(default=100, metadata={"help": "the saving frequency"})
@@ -109,16 +109,9 @@ def load_data_from_json(
     # Convert the formatted data into a Hugging Face Dataset
     #dataset = Dataset.from_dict(formatted_data)
 
-    def pad_string_to_1024(s):
-        padding_needed = 1024 - len(s)
-        if padding_needed > 0:
-            return s + ' ' * padding_needed
-        else:
-            return s
-
     def data_mapping(sample):
         return {
-            "prompt": pad_string_to_1024(sample["prompt"]),
+            "prompt": sample["prompt"],
             "chosen": sample["chosen"],
             "rejected": sample["rejected"],
         }
@@ -157,7 +150,7 @@ if __name__ == "__main__":
             name for name, buffer in model.named_buffers() if buffer.dtype == torch.bool
         ]
 
-    tokenizer = AutoTokenizer.from_pretrained("allenai/OLMo-1B")
+    tokenizer = AutoTokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
 
     # 2. Load the paired dataset
