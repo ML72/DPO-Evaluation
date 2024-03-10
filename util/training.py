@@ -53,7 +53,7 @@ class ScriptArguments:
 
     max_prompt_length: Optional[int] = field(default=1024, metadata={"help": "the maximum prompt length"})
     max_length: Optional[int] = field(default=1024, metadata={"help": "the maximum sequence length"})
-    max_steps: Optional[int] = field(default=1000, metadata={"help": "max number of training steps"})
+    max_steps: Optional[int] = field(default=100, metadata={"help": "max number of training steps"})
     logging_steps: Optional[int] = field(default=10, metadata={"help": "the logging frequency"})
     save_steps: Optional[int] = field(default=100, metadata={"help": "the saving frequency"})
     eval_steps: Optional[int] = field(default=100, metadata={"help": "the evaluation frequency"})
