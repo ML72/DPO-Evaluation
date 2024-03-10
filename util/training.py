@@ -30,7 +30,7 @@ class ScriptArguments:
     )
     learning_rate: Optional[float] = field(default=5e-4, metadata={"help": "optimizer learning rate"})
     lr_scheduler_type: Optional[str] = field(default="cosine", metadata={"help": "the lr scheduler type"})
-    warmup_steps: Optional[int] = field(default=100, metadata={"help": "the number of warmup steps"})
+    warmup_steps: Optional[int] = field(default=20, metadata={"help": "the number of warmup steps"})
     weight_decay: Optional[float] = field(default=0.05, metadata={"help": "the weight decay"})
     optimizer_type: Optional[str] = field(default="paged_adamw_32bit", metadata={"help": "the optimizer type"})
 
@@ -55,8 +55,8 @@ class ScriptArguments:
     max_length: Optional[int] = field(default=1024, metadata={"help": "the maximum sequence length"})
     max_steps: Optional[int] = field(default=100, metadata={"help": "max number of training steps"})
     logging_steps: Optional[int] = field(default=10, metadata={"help": "the logging frequency"})
-    save_steps: Optional[int] = field(default=100, metadata={"help": "the saving frequency"})
-    eval_steps: Optional[int] = field(default=100, metadata={"help": "the evaluation frequency"})
+    save_steps: Optional[int] = field(default=20, metadata={"help": "the saving frequency"})
+    eval_steps: Optional[int] = field(default=20, metadata={"help": "the evaluation frequency"})
 
     output_dir: Optional[str] = field(default="./results", metadata={"help": "the output directory"})
     log_freq: Optional[int] = field(default=1, metadata={"help": "the logging frequency"})
@@ -175,7 +175,7 @@ if __name__ == "__main__":
         logging_steps=script_args.logging_steps,
         save_steps=script_args.save_steps,
         gradient_accumulation_steps=script_args.gradient_accumulation_steps,
-        #gradient_checkpointing=script_args.gradient_checkpointing,
+        gradient_checkpointing=script_args.gradient_checkpointing,
         learning_rate=script_args.learning_rate,
         evaluation_strategy="steps",
         eval_steps=script_args.eval_steps,
@@ -186,8 +186,8 @@ if __name__ == "__main__":
         optim=script_args.optimizer_type,
         fp16=True,
         remove_unused_columns=False,
-        run_name="dpo_olmo",
-        #gradient_checkpointing_kwargs=dict(use_reentrant=script_args.gradient_checkpointing_use_reentrant),
+        run_name="dpo_run",
+        gradient_checkpointing_kwargs=dict(use_reentrant=script_args.gradient_checkpointing_use_reentrant),
         seed=script_args.seed,
     )
 
