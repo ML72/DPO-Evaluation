@@ -90,12 +90,13 @@ class ScriptArguments:
 
 def load_data_from_json(
     json_path: str,
-    num_proc=24
+    split="train",
+    num_proc=24,
 ) -> Dataset:
     """
     Load the data from JSON
     """
-    dataset = load_dataset("json", data_files=json_path)
+    dataset = load_dataset("json", data_files=json_path, split=split, num_proc=num_proc)
 
     # Assuming each item in your JSON file is a list with three elements
     # corresponding to 'prompt', 'chosen', and 'rejected'
