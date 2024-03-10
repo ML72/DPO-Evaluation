@@ -109,9 +109,16 @@ def load_data_from_json(
     # Convert the formatted data into a Hugging Face Dataset
     #dataset = Dataset.from_dict(formatted_data)
 
+    def pad_string_to_1024(s):
+        padding_needed = 1024 - len(s)
+        if padding_needed > 0:
+            return s + ' ' * padding_needed
+        else:
+            return s
+
     def data_mapping(sample):
         return {
-            "prompt": sample["prompt"],
+            "prompt": pad_string_to_1024(sample["prompt"]),
             "chosen": sample["chosen"],
             "rejected": sample["rejected"],
         }
@@ -184,7 +191,7 @@ if __name__ == "__main__":
         lr_scheduler_type=script_args.lr_scheduler_type,
         warmup_steps=script_args.warmup_steps,
         optim=script_args.optimizer_type,
-        #fp16=True,
+        fp16=True,
         remove_unused_columns=False,
         run_name="dpo_olmo",
         #gradient_checkpointing_kwargs=dict(use_reentrant=script_args.gradient_checkpointing_use_reentrant),
