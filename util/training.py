@@ -160,7 +160,7 @@ if __name__ == "__main__":
     )
 
     # 3. Load evaluation dataset
-    eval_dataset = load_data_from_json(script_args.val_data_path, split="validation")
+    eval_dataset = load_data_from_json(script_args.val_data_path, split="train")
     eval_dataset = eval_dataset.filter(
         lambda x: len(x["prompt"]) + len(x["chosen"]) <= script_args.max_length
         and len(x["prompt"]) + len(x["rejected"]) <= script_args.max_length
