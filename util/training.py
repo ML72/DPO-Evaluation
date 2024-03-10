@@ -184,7 +184,7 @@ if __name__ == "__main__":
         lr_scheduler_type=script_args.lr_scheduler_type,
         warmup_steps=script_args.warmup_steps,
         optim=script_args.optimizer_type,
-        fp16=True,
+        #fp16=True,
         remove_unused_columns=False,
         run_name="dpo_olmo",
         #gradient_checkpointing_kwargs=dict(use_reentrant=script_args.gradient_checkpointing_use_reentrant),
