@@ -25,7 +25,7 @@ class ScriptArguments:
 
     # training parameters
     model_name_or_path: Optional[str] = field(
-        default="gpt2",
+        default="openai-community/gpt2-xl",
         metadata={"help": "the location of the model name or path"},
     )
     learning_rate: Optional[float] = field(default=5e-4, metadata={"help": "optimizer learning rate"})
@@ -150,7 +150,7 @@ if __name__ == "__main__":
             name for name, buffer in model.named_buffers() if buffer.dtype == torch.bool
         ]
 
-    tokenizer = AutoTokenizer.from_pretrained("gpt2")
+    tokenizer = AutoTokenizer.from_pretrained("openai-community/gpt2-xl")
     tokenizer.pad_token = tokenizer.eos_token
 
     # 2. Load the paired dataset
