@@ -107,13 +107,16 @@ def load_data_from_json(
     }
 
     # Convert the formatted data into a Hugging Face Dataset
-    dataset = Dataset.from_dict(
-        formatted_data,
+    dataset = Dataset.from_dict(formatted_data)
+
+    def identity_fn(x):
+        return x
+
+    return dataset.map(
+        identity_fn,
         batched=True,
         num_proc=num_proc
     )
-
-    return dataset
 
 
 if __name__ == "__main__":
