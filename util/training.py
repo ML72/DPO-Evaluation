@@ -96,7 +96,7 @@ def load_data_from_json(
     """
     Load the data from JSON
     """
-    dataset = load_dataset("json", data_files=json_path, split=split, num_proc=num_proc)
+    dataset = load_dataset("json", data_files=json_path, split=split)
 
     # Assuming each item in your JSON file is a list with three elements
     # corresponding to 'prompt', 'chosen', and 'rejected'
