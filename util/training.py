@@ -89,33 +89,46 @@ class ScriptArguments:
 
 
 def load_data_from_json(
-    json_path: str,
-    num_proc=24
+    data_dir: str = "data/rl",
+    sanity_check: bool = False,
+    cache_dir: Optional[str] = None,
+    num_proc=24,
 ) -> Dataset:
-    """
-    Load the data from JSON
-    """
-    with open(json_path, 'r') as f:
-        data = json.load(f)
+    """Load the stack-exchange-paired dataset from Hugging Face and convert it to the necessary format.
 
-    # Assuming each item in your JSON file is a list with three elements
-    # corresponding to 'prompt', 'chosen', and 'rejected'
-    formatted_data = {
-        'prompt': [item[0] for item in data],
-        'chosen': [item[1] for item in data],
-        'rejected': [item[2] for item in data],
+    The dataset is converted to a dictionary with the following structure:
+    {
+        'prompt': List[str],
+        'chosen': List[str],
+        'rejected': List[str],
     }
 
-    # Convert the formatted data into a Hugging Face Dataset
-    dataset = Dataset.from_dict(formatted_data)
+    Prompts are structured as follows:
+      "Question: " + <prompt> + "\n\nAnswer: "
+    """
+    dataset = load_dataset(
+        "lvwerra/stack-exchange-paired",
+        split="train",
+        cache_dir=cache_dir,
+        data_dir=data_dir,
+    )
+    original_columns = dataset.column_names
 
-    def identity_fn(x):
-        return x
+    if sanity_check:
+        dataset = dataset.select(range(min(len(dataset), 1000)))
+
+    def return_prompt_and_responses(samples) -> Dict[str, str]:
+        return {
+            "prompt": ["Question: " + question + "\n\nAnswer: " for question in samples["question"]],
+            "chosen": samples["response_j"],
+            "rejected": samples["response_k"],
+        }
 
     return dataset.map(
-        identity_fn,
+        return_prompt_and_responses,
         batched=True,
-        num_proc=num_proc
+        num_proc=num_proc,
+        remove_columns=original_columns,
     )
 
 
