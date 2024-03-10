@@ -163,7 +163,7 @@ if __name__ == "__main__":
         logging_steps=script_args.logging_steps,
         save_steps=script_args.save_steps,
         gradient_accumulation_steps=script_args.gradient_accumulation_steps,
-        gradient_checkpointing=script_args.gradient_checkpointing,
+        #gradient_checkpointing=script_args.gradient_checkpointing,
         learning_rate=script_args.learning_rate,
         evaluation_strategy="steps",
         eval_steps=script_args.eval_steps,
@@ -175,7 +175,7 @@ if __name__ == "__main__":
         fp16=True,
         remove_unused_columns=False,
         run_name="dpo_olmo",
-        gradient_checkpointing_kwargs=dict(use_reentrant=script_args.gradient_checkpointing_use_reentrant),
+        #gradient_checkpointing_kwargs=dict(use_reentrant=script_args.gradient_checkpointing_use_reentrant),
         seed=script_args.seed,
     )
 
