@@ -128,6 +128,7 @@ if __name__ == "__main__":
         torch_dtype=torch_dtype,
         load_in_4bit=script_args.load_in_4bit,
         device_map={"": Accelerator().local_process_index},
+        trust_remote_code=True,
     )
     model.config.use_cache = False
 
@@ -141,14 +142,14 @@ if __name__ == "__main__":
     tokenizer.pad_token = tokenizer.eos_token
 
     # 2. Load the paired dataset
-    train_dataset = load_data_from_json("data/training")
+    train_dataset = load_data_from_json("../data/dpo/dpo_000-1.json")
     train_dataset = train_dataset.filter(
         lambda x: len(x["prompt"]) + len(x["chosen"]) <= script_args.max_length
         and len(x["prompt"]) + len(x["rejected"]) <= script_args.max_length
     )
 
     # 3. Load evaluation dataset
-    eval_dataset = load_data_from_json("data/evaluation")
+    eval_dataset = load_data_from_json("../data/dpo/dpo_000-1.json")
     eval_dataset = eval_dataset.filter(
         lambda x: len(x["prompt"]) + len(x["chosen"]) <= script_args.max_length
         and len(x["prompt"]) + len(x["rejected"]) <= script_args.max_length
