@@ -92,7 +92,7 @@ def dataset_to_prompts(fewshot_examples, data_array, noise=0.0):
             'choices': entry['choices'],
             'answer': ""
         }
-        prompt = example_str(fewshot_examples) + entry_to_prompt(masked_entry)
+        prompt = example_str(fewshot_examples, num=1) + entry_to_prompt(masked_entry)
         chosen = f" {entry['answer']}"
         rejected = f" {random_other(entry['answer'])}"
         prompts.append((prompt[:-2], chosen, rejected))
